@@ -8,9 +8,7 @@
 #    CLAUDE_CONFIG_DIR (containerEnv in devcontainer.json) makes Claude Code
 #    read it there, so onboarding and account state survive a rebuild
 # 3. Updates Claude Code, so the first session starts on the latest release
-# 4. Sets a random git identity for Claude commits (mail domain from
-#    GIT_EMAIL_DOMAIN, default codecentric.de)
-# 5. Installs the official Claude plugins the project enables
+# 4. Installs the official Claude plugins the project enables
 #
 # Auth mode is controlled by the CLAUDE_AUTH environment variable:
 #   - "proxy"  (default): copies settings.json from host, which contains
@@ -186,23 +184,6 @@ update_claude() {
   echo "$SEP"
 }
 
-init_git_identity() {
-  section "Initializing Git Identity"
-
-  NAMES=("Claus Coder" "Claudia Coder" "Mr. Robot" "Mrs. Robot")
-  SELECTED="${NAMES[$((RANDOM % ${#NAMES[@]}))]}"
-
-  FIRST=$(echo "$SELECTED" | awk '{print $1}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
-  SECOND=$(echo "$SELECTED" | awk '{print $2}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
-  EMAIL="${FIRST}.${SECOND}@${GIT_EMAIL_DOMAIN:-codecentric.de}"
-
-  git config --global user.name "$SELECTED"
-  git config --global user.email "$EMAIL"
-
-  echo "Git identity set: $SELECTED <$EMAIL>"
-  echo "$SEP"
-}
-
 setup_plugins() {
   # Install the official plugins the project enables. Enabling lives in the
   # committed .claude/settings.json (e.g. written by /project-init), but
@@ -277,7 +258,6 @@ main() {
   # Before update_claude, the first phase that calls `claude`.
   init_claude_config
   update_claude
-  init_git_identity
   setup_plugins
 }
 

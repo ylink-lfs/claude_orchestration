@@ -27,7 +27,7 @@ Requires Docker Compose 2.24 or newer (optional `env_file` entries).
 | `fish/config.fish` | Shell config; reads `.env.credentials` |
 | `cargo/config.toml` | Links Rust builds with mold |
 | `post-create.sh` | Once per container: volume ownership, cargo config, language servers |
-| `post-start.sh` | Every start: Claude config, Claude Code update, git identity, plugins |
+| `post-start.sh` | Every start: Claude config, Claude Code update, plugins |
 | `.env.defaults` | Committed environment defaults |
 | `.env.credentials.example` | Documents the credentials file format |
 
@@ -37,7 +37,7 @@ Three env files, each with one job:
 
 | File | Committed | Read by | Holds | Takes effect |
 |------|-----------|---------|-------|--------------|
-| `.env.defaults` | yes | Compose | Team defaults (`CLAUDE_AUTH`, `GIT_EMAIL_DOMAIN`) | Rebuild Container |
+| `.env.defaults` | yes | Compose | Team defaults (`CLAUDE_AUTH`) | Rebuild Container |
 | `.env` | no | Compose | Personal overrides, resource limits | Rebuild Container |
 | `.env.credentials` | no | fish, at every shell start | Tokens and secrets | Next new shell |
 
@@ -53,7 +53,6 @@ Settings:
 | Key | Default | Purpose |
 |-----|---------|---------|
 | `CLAUDE_AUTH` | `proxy` | Auth mode (see [Authentication Modes](#authentication-modes)) |
-| `GIT_EMAIL_DOMAIN` | `codecentric.de` | Mail domain of the random git identity for Claude's commits |
 | `DEVCONTAINER_CPUS` | no limit | CPU cap (`.env` only, see [Resource limits](#resource-limits)) |
 | `DEVCONTAINER_MEMORY` | no limit | Memory cap (`.env` only) |
 
