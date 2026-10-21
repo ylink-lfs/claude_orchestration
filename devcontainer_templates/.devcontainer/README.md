@@ -153,8 +153,12 @@ Then point the container at it in `.devcontainer/.env`:
 PULSE_SERVER=docker.for.mac.localhost
 ```
 
-You also need to share `~/.config/pulse` with the container for
-authentication — add it to `volumes` in `docker-compose.yml`.
+The container also needs the host's PulseAudio cookie for authentication —
+add `~/.config/pulse` to `volumes` in `docker-compose.yml`:
+
+```yaml
+      - ${HOME}/.config/pulse:/home/vscode/.config/pulse:ro
+```
 
 ### Windows via WSL2 (not tested)
 
