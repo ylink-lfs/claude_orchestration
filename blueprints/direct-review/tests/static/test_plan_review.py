@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from conftest import CLAUDE_MD, PLAN_FORMAT_TEMPLATE, PLAN_REVIEW_CHECKLIST_TEMPLATE
+from conftest import AGENTS_DIR, CLAUDE_MD, PLAN_FORMAT_TEMPLATE, PLAN_REVIEW_CHECKLIST_TEMPLATE
 
 pytestmark = pytest.mark.static
 
@@ -164,12 +164,12 @@ def test_lead_instructions_reference_plan_review_subagent(lead_instructions):
 
 def test_lead_instructions_reference_review_cycle(lead_instructions):
     """The plan review must be a cycle, not a one-shot check."""
-    text = lead_instructions.lower()
-    assert "repeat until" in text or "re-launch" in text, (
-        "CLAUDE.md must describe the plan review as a cycle — "
-        "re-launch the subagent after revisions until it reports "
-        "no issues. A one-shot review misses issues introduced "
-        "during revision"
+    text = " ".join(lead_instructions.lower().split())
+    assert "follow-up pass" in text and "repeat b–c until" in text, (
+        "CLAUDE.md must describe the plan review as a cycle — a "
+        "follow-up pass after every revision, repeated until a pass "
+        "reports no blocking issues. A one-shot review misses issues "
+        "introduced during revision"
     )
 
 
@@ -225,13 +225,13 @@ def test_lead_instructions_commit_after_approval(lead_instructions):
     )
 
 
-def test_lead_instructions_user_rejection_restarts_review(lead_instructions):
-    """User rejection must restart the review cycle."""
-    text = lead_instructions.lower()
-    assert "restart the review cycle" in text or "step 6" in text, (
-        "CLAUDE.md must instruct the lead to restart the review cycle "
-        "when the user requests changes — revisions based on user "
-        "feedback can reintroduce issues"
+def test_lead_instructions_user_changes_get_reviewed(lead_instructions):
+    """A change the user asks for at approval goes through review again."""
+    text = " ".join(lead_instructions.lower().split())
+    assert "run follow-up passes" in text, (
+        "CLAUDE.md must send a revision the user asked for through "
+        "follow-up passes — revisions based on user feedback can "
+        "reintroduce issues"
     )
 
 
@@ -240,4 +240,56 @@ def test_lead_instructions_reference_plan_reviewer_agent(lead_instructions):
     assert "plan-reviewer" in lead_instructions, (
         "CLAUDE.md must reference the plan-reviewer agent by name — "
         "the agent file defines the review process and output format"
+    )
+
+
+# --- Focused first pass, diff-only follow-up passes ---
+
+
+def _focus_sections(checklist):
+    """Map each focus in the checklist's Focus table to its section numbers."""
+    focus_table = checklist.split("## Focus", 1)[1].split("\n## ", 1)[0]
+    rows = re.findall(r"^\| `([a-z]+)` \| ([\d, ]+) \|", focus_table, re.MULTILINE)
+    return {focus: [int(n) for n in numbers.split(",")] for focus, numbers in rows}
+
+
+def test_checklist_focus_covers_every_section_once():
+    """Each checklist section belongs to exactly one first-pass focus."""
+    checklist = PLAN_REVIEW_CHECKLIST_TEMPLATE.read_text()
+    sections = [int(n) for n in re.findall(r"^## (\d+)\. ", checklist, re.MULTILINE)]
+    assigned = [n for numbers in _focus_sections(checklist).values() for n in numbers]
+    assert sections and sorted(assigned) == sorted(sections), (
+        "every plan-review-checklist.md section must belong to exactly one "
+        "focus — a section no focus covers goes unreviewed, since "
+        "follow-up passes review only the diff of each revision"
+    )
+
+
+def test_lead_instructions_launch_one_reviewer_per_focus(lead_instructions):
+    """The first pass launches a plan-reviewer for every focus."""
+    focuses = _focus_sections(PLAN_REVIEW_CHECKLIST_TEMPLATE.read_text())
+    missing = [focus for focus in focuses if f"`{focus}`" not in lead_instructions]
+    assert focuses and not missing, (
+        f"CLAUDE.md must launch one first-pass plan-reviewer per checklist "
+        f"focus — missing: {missing}. A focus without a reviewer leaves its "
+        f"sections unreviewed"
+    )
+
+
+def test_lead_instructions_pass_revision_diff_to_follow_up_pass(lead_instructions):
+    """Follow-up passes review the diff, which the reviewer cannot produce itself."""
+    assert "diff -u" in lead_instructions, (
+        "CLAUDE.md must have the lead pass the revision's diff to the "
+        "follow-up pass — the plan-reviewer has no Bash, and without the "
+        "diff it cannot tell changed text from text earlier passes reviewed"
+    )
+
+
+def test_plan_reviewer_defines_follow_up_passes():
+    """The plan-reviewer limits a follow-up pass to the revision."""
+    content = (AGENTS_DIR / "plan-reviewer.md").read_text()
+    assert "## Follow-up Passes" in content, (
+        "plan-reviewer.md must define how a follow-up pass works — without "
+        "it, every pass reviews the whole plan again and finds different "
+        "points each time, so the review cycle does not converge"
     )

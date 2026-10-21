@@ -157,7 +157,7 @@ the queue.
 | Reviewer | Opus | Quality gate — scope verification, code review |
 | Test Engineer | Sonnet | Advisory — test lists on demand |
 | Security Engineer | Sonnet | Advisory — security assessments on demand |
-| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation |
+| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation — three focused reviewers in parallel, then follow-up passes on the diff of each revision |
 | Design Advisor (subagent) | Opus | Proposes the change's shape, preparatory refactors, and larger redesigns |
 
 ```mermaid
@@ -202,7 +202,7 @@ adding one requires no changes to CLAUDE.md.
 | Test Engineer | Sonnet | Advisory — designs test specs, verifies coverage |
 | Security Engineer | Sonnet | Advisory — checks security gaps |
 | Reviewer | Opus | Quality gate — reviews and proposes commit message; lead commits |
-| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation |
+| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation — three focused reviewers in parallel, then follow-up passes on the diff of each revision |
 | Test List (subagent) | Sonnet | Converts an example mapping into a minimum required test list (used by `/test-list`) |
 | Design Advisor (subagent) | Opus | Proposes the change's shape, preparatory refactors, and larger redesigns |
 
@@ -310,7 +310,7 @@ Each task is classified by `risk-assessment.md`:
 | Lead | Opus | Advises, plans, implements on request, commits after user review |
 | Reviewer | Opus | Quality gate — scope, code review, proposes commit message |
 | Security Engineer | Opus | Advisory — decision consultations, pre/post-implementation sign-offs |
-| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation |
+| Plan Reviewer (subagent) | Sonnet | Reviews draft plans before user presentation — three focused reviewers in parallel, then follow-up passes on the diff of each revision |
 | Design Advisor (subagent) | Opus | Proposes the change's shape, preparatory refactors, and larger redesigns |
 
 ```mermaid

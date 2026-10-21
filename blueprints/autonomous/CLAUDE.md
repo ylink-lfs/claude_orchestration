@@ -56,7 +56,7 @@ uv run pytest blueprints/autonomous/tests/ -m static -v
 - The design-advisor is a stateless subagent; every code-changing plan rests on its report, and the user decides each proposal before the plan is written
 - An adopted preparatory refactor is its own task ahead of the feature work; when no test covers the behavior it preserves, a preceding task pins that behavior with tests
 - Duplication the change must edit in several places is removed before it (design-advisor: `do first` or `separate plan before`); a separate plan before is completed first and the change then gets a fresh design-advisor report, one after goes into the plan's Non-Goals as `(separate plan after this one)` and is offered at completion
-- Plans are reviewed by a Sonnet subagent before user presentation — review cycles until the subagent reports no blocking issues
+- Plans are reviewed by Sonnet subagents before user presentation — three in parallel on the first pass, one per checklist focus (`scope`, `criteria`, `impact`), then single follow-up passes on the diff of each revision until a pass reports no blocking issues
 - Plan review checklist and format guide are synced to the plans directory by `/ensure-ai-dirs`
 - Plan-format.md contains `<!-- agent: -->` comments as authoring hints for the lead
 - Plans are committed only after user approval, not before
