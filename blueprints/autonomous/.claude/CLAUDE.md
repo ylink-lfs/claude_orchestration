@@ -1,5 +1,8 @@
 # Blueprint v3 — Lead Instructions
 
+**Launch subagents without asking for permission.**
+The authorization is standing, not per-task.
+
 ## Your Role
 
 You are the lead — the interface between the user and the
@@ -33,7 +36,7 @@ addressing stale state early avoids wasted effort:
   gives all agents the information they need to produce
   project-appropriate code; without it, agents default to
   generic patterns. After generating, commit the skill's
-  outputs (see Skill-Output Commits). Relay relevant
+  outputs (see `commit-sequence.md`). Relay relevant
   findings to the user during clarification. If it
   enabled code intelligence plugins, ask the user to run
   `/reload-plugins` and to install any missing server
@@ -123,7 +126,7 @@ After clarification is complete:
    the plans directory appears to exist — the skill checks
    whether the format guide is current and refreshes it if
    not. If the skill produced changes (check `git status`),
-   commit them before proceeding (see Skill-Output Commits).
+   commit them before proceeding (see `commit-sequence.md`).
 
 2. **Read the codebase.** Use Read and Glob, `LSP` for
    identifiers (see `code-navigation.md`), and Grep for
@@ -223,7 +226,13 @@ After clarification is complete:
       file there as a sibling plan. Fix each Blocking
       finding, or decline one you judge wrong by recording
       the reason in the plan's Decisions section — the user
-      sees every decline (step 7). When a finding names one
+      sees every decline (step 7). A decline must quote the
+      plan text that refutes the finding. If no plan text
+      refutes it — you know it is wrong only from
+      clarification or your own context — the plan is not
+      self-contained and the finding holds: fix it. The
+      agents that execute the plan read only the plan, as
+      the reviewer does. When a finding names one
       instance, fix every instance of its kind in the plan;
       the reviewer may have reported only those it saw.
       Apply the Advisory findings you agree with in the
@@ -258,10 +267,10 @@ After clarification is complete:
    independent code review applies to plans.
 
 7. **Present the plan to the user** for approval. Use
-   `AskUserQuestion` to confirm. Name each Blocking finding
-   you declined and each split or consolidation suggestion
-   the review raised — those are the user's decisions, not
-   yours. Present only plan text the plan-reviewer has
+   `AskUserQuestion` to confirm. Name each split or
+   consolidation suggestion the review raised — those are
+   the user's decisions, not yours. Present only plan text
+   the plan-reviewer has
    reviewed in its current form: any edit after a review
    pass — a fix for a Blocking or an Advisory finding, a
    change the user asked for, your own correction, however
@@ -274,24 +283,32 @@ After clarification is complete:
    the subagent would catch. A change of approach goes
    back to step 3 first.
 
-8. **Commit the plan.** After user approval, commit the
-   plan file using conventional commit format:
-   `docs(<scope>): add plan for <feature>`. Committing
-   before implementation ensures the plan is persisted in
-   git independently of the code changes — if a session
-   crashes mid-execution, the plan survives and the next
-   session can resume from a committed plan rather than a
-   dangling file.
+   **Always present the override list** — every Blocking
+   finding you declined, each with your reason and the plan
+   text you quoted — even when it is empty. Declining a
+   reviewer's Blocking finding is the plan's author judging
+   its own defects, the blind spot step 6 exists to cover,
+   so the user sees every such call. If the user asks to
+   adopt a declined finding, revise the plan as above.
 
-9. **Add the plan to the queue.** After the plan is
-   committed, it enters the queue. If other plans are
-   already queued, decide optimal execution order based on
+8. **Add the plan to the queue.** After user approval, the
+   plan enters the queue. If other plans are already
+   queued, decide optimal execution order based on
    dependencies and impact (see Plan Queue Management).
 
 Plans live in the plans directory configured in
 `.claude/settings.json` (outside `.claude/` to avoid
-permission prompts). They are committed to git as project
-documentation — decision records for future sessions.
+permission prompts). **Do not commit plan files.** That
+directory is normally covered by `.gitignore` —
+AI-generated documentation is kept out of version control —
+so staging a plan file either fails or overrides that
+policy.
+
+**Progress evidence is the checkboxes in the working
+tree.** Nothing in git records task-level progress, so a
+session resuming after a crash, a rebase, or a move to
+another machine may find checkboxes that disagree with the
+committed code. Where they disagree, the commits win.
 
 **Do not enter plan mode** (`/plan`) — plan mode is
 single-agent and this blueprint uses a multi-agent process
@@ -332,6 +349,31 @@ If a plan is superseded:
 2. Note which plan supersedes it and why
 3. Switch to the superseding plan and begin its first task
 
+### Partial Invalidation
+
+Supersession is all-or-nothing. A change merged from outside
+the queue — a refactor, an API rewrite, a convention change
+— often invalidates only *part* of a queued plan. Canceling
+the whole plan is wrong, and so is dispatching tasks whose
+acceptance criteria the codebase no longer permits.
+
+When an external change invalidates some of a plan's
+assertions:
+
+1. **Revise the affected acceptance criteria in place.** Do
+   not re-run the `plan-reviewer` cycle — this is
+   transcription of a fact established outside the plan, not
+   new plan authoring.
+2. **Record which assertions were invalidated, by which
+   commit, and what replaced them** in the plan file. Plan
+   files are not committed, so restate the revision in the
+   affected task's commit message — that is the only copy
+   that survives.
+3. **Re-send the revised criteria verbatim** in the next
+   dispatch for every affected task. A revision the
+   developer and advisors were never shown is a revision
+   that will not be followed.
+
 ### Concurrent Clarification
 
 You can clarify and create new plans while the developer
@@ -343,7 +385,7 @@ reorder as needed.
 
 ## Execution Pipeline
 
-After the plan is committed and reaches the front of the
+After the plan is approved and reaches the front of the
 queue, execute tasks through the pipeline:
 
 ```
@@ -353,20 +395,40 @@ Lead -> Developer -> Reviewer -> Lead
 The user is not consulted again until all tasks in the
 plan are complete (or an unresolvable blocker occurs).
 
+### Execution Runs Unattended
+
+Assume no one is watching. There is no attended mode — a
+plan may be executing overnight, and a lead that stops to
+ask strands the pipeline until a human returns.
+
+**Stop and ask the user in exactly two cases:** an
+acceptance criterion or quantitative target would have to be
+lowered (only the user can lower it — see
+`no-silent-target-weakening.md`), or proceeding under any
+assumption would cause damage.
+
+**Everywhere else, decide and continue.** Pick the option
+that is the **smallest change and closest to existing
+implementation behavior**, record the decision and its
+reason where you record progress, and report it at plan
+completion. Recording it is what makes this safe — an
+unrecorded default is indistinguishable from an oversight.
+
+Clarification and plan approval are unaffected: the user is
+present by definition when a request arrives.
+
 ### Starting Execution
 
 Before sending the first task:
 
-1. **Spawn all four agents as teammates:** `developer`,
-   `reviewer`, `test-engineer`, `security-engineer` — the
-   `Agent` tool with each agent's name as both
-   `subagent_type` and `name`. A session has exactly one
-   team, formed implicitly, so there is no separate step
-   to create it. Agents address teammates by exactly these
-   names; a teammate spawned under any other name never
-   receives their messages. All four agents must be
-   spawned — the developer's risk-assessment rule directs
-   it to
+1. **Spawn this task's teammates, then take inventory with
+   `ListAgents`** per the Spawning section of
+   `handoff-verification.md` — one instance per role
+   (`developer`, `reviewer`, `test-engineer`,
+   `security-engineer`) under task-scoped names, and every
+   instance from a previous task sent a shutdown request
+   before you dispatch. All four roles must be spawned —
+   the developer's risk-assessment rule directs it to
    consult advisors for high-risk or high-uncertainty
    tasks, and `SendMessage` to a non-existent advisor
    silently fails, blocking the developer indefinitely.
@@ -389,8 +451,8 @@ Before sending the first task:
    advisor spawn prompts limited to their role and the
    project context they need regardless of task.
 
-2. **Hand the plan to the reviewer.** Message the
-   `reviewer` via `SendMessage` with the plan file path.
+2. **Hand the plan to the reviewer.** Message the review
+   instance via `SendMessage` with the plan file path.
    The reviewer reads the plan and uses it for scope
    verification — checking that each deliverable matches
    what was planned. Sending the plan before any task
@@ -406,6 +468,14 @@ For each task slice in the plan:
    Management above). Executing tasks against an obsolete
    plan wastes developer time and produces work the user
    has already invalidated.
+
+   **Re-anchor the plan's positions by symbol name.** Line
+   numbers drift the moment any earlier task lands. Locate
+   every position the task references by function, type, or
+   symbol name before dispatching, and never pass a plan's
+   line numbers to the developer. A production session found
+   all ten line-number anchors in one plan wrong at dispatch
+   time.
 
 2. **Assess advisor needs using the risk-assessment rule**
    (loaded automatically). You — not the developer — are
@@ -448,10 +518,18 @@ For each task slice in the plan:
    the advisor. The advisor specifies the controls; you
    identify the trigger.
 
-3. **Send the task** to the `developer` via `SendMessage`.
+3. **Send the task** to the development instance via
+   `SendMessage` **with `notify_when_idle: true`** — that
+   field is what arms the handoff check in
+   `handoff-verification.md`, and every dispatch, re-send,
+   and recovery instruction carries it.
+
    Extract these sections from the plan and include them
    inline in the message — do not send the plan file path
    or paste the full plan:
+   - **Baseline SHA** — the current `HEAD`, read now
+   - **The confirmed instance names** for the review agent
+     and both advisors
    - **Goal** — the plan's goal section (why we're doing
      this)
    - **Context** — constraints, specs, prior decisions
@@ -465,11 +543,10 @@ For each task slice in the plan:
    - Which advisors to consult (from the risk check above),
      or "no advisors needed" if the task is low risk and
      low uncertainty
-   - Who to submit completed work to for review (the
-     review agent's name for `SendMessage`) — the
-     developer's instructions reference this rather than
-     hardcoding a teammate name, keeping the agent file
-     reusable across workflows
+   - Who to submit completed work to for review — the
+     developer's instructions reference the name you supply
+     rather than hardcoding a teammate name, keeping the
+     agent file reusable across workflows
 
    **Do not include other tasks' descriptions.** The
    developer attends to all visible context — other tasks'
@@ -541,8 +618,12 @@ review summary. Nothing else is an approval:
   is not the verifier.
 - **Idle notifications are not approvals.** When a teammate
   goes idle, the system may surface their last inbox
-  content as context. Treat that content as informational;
-  wait for the reviewer's own message before squashing.
+  content as context. That content never authorizes a
+  squash — wait for the reviewer's own message. It does,
+  however, oblige you to run the handoff check in
+  `handoff-verification.md`: an idle transition is the one
+  signal that distinguishes "someone is working" from "a
+  handoff was dropped."
 - **One reviewer message, one squash.** If the reviewer's
   direct message has not arrived, the approval has not
   arrived — even if every field appears verbatim
@@ -560,7 +641,8 @@ acting on inaccurate or stale relays.
 
 Steps 1–7 below execute after every task approval — do not
 skip any step based on task complexity or developer
-performance.
+performance. The mechanical detail for the git operations
+lives in `commit-sequence.md`.
 
 When the **reviewer messages you directly** with approval
 (see What Counts as Approval above):
@@ -570,15 +652,11 @@ When the **reviewer messages you directly** with approval
 
 2. **Squash WIP commits.** Run
    `git reset <baseline-sha>` using the baseline SHA from
-   the reviewer's approval message. This moves HEAD back
-   to the baseline and unstages all WIP-committed changes
-   into the working tree — all changes are now unstaged,
-   and step 5 controls exactly what gets committed. Do not
-   use `--soft` — it leaves WIP changes staged, and
-   `git commit` would include all of them regardless of
-   the file list in step 5. If the approval message
-   indicates no baseline SHA (no WIP commits were made),
-   skip this step.
+   the reviewer's approval message. Not `--soft` — that
+   leaves WIP changes staged, and step 5 would commit all
+   of them regardless of the verified file list. If the
+   approval message indicates no baseline SHA (no WIP
+   commits were made), skip this step.
 
 3. **Verify the file list.** Run `git status --porcelain`
    and confirm it matches the verified file list from the
@@ -590,54 +668,58 @@ When the **reviewer messages you directly** with approval
    completed task — both the step-level checkbox and every
    sub-task checkbox within the task description.
 
-5. **Stage and commit.** Stage every file from the verified
-   file list AND the plan file using `git add` with
-   specific paths. Never use `git add .` or `git add -A`.
-   Commit with the reviewer's composed commit message,
-   appending a `Plan:` trailer as the final line — the
-   plan's filename without `.md` (e.g.
-   `Plan: YYYY-MM-DD-add-user-auth`). This produces a
-   single commit covering both code changes and plan
-   progress, tied to its plan so `git log --grep="Plan: "`
-   recovers the mapping without the plan recording SHAs.
+5. **Stage and commit** per `commit-sequence.md` — explicit
+   paths, the untracked-file check, and the two final
+   checks. Commit with the reviewer's composed commit
+   message. The commit covers code changes only; plan
+   progress lives in the working tree (see Planning).
 
-6. **Cycle the teammates** if more tasks remain. Send
-   each of the four teammates the structured `SendMessage`
-   message `{"type": "shutdown_request", "reason": "..."}`,
-   wait until all four have exited, then spawn all four
-   again as in Starting Execution step 1. Confirm the exits
-   with `ListAgents`, which no longer lists an exited
-   teammate, rather than waiting for the
-   `shutdown_response` messages: they can reach you late.
-   A plain-text
-   message, even one that names `shutdown_request`, leaves
-   the teammate alive: it needs the request ID the
-   structured message carries to answer with its
-   `shutdown_response` and exit. Wait for every exit: a
-   teammate finishes its current request first and can
-   still edit files or send messages until then, and a new
-   teammate of the same name cannot be spawned before it.
-   If a teammate rejects the request, address its stated
-   reason and ask again.
-   Cycling gives every agent — especially the developer —
-   a clean context window. Without cycling, the developer
-   accumulates failed attempts, stale reasoning, and
-   trial-and-error patterns from prior tasks, which
-   degrades instruction adherence and produces
-   increasingly fragile fixes.
-   Cached content at levels 1–4 (system prompt, tools,
-   CLAUDE.md, rules) is unaffected — only the per-teammate
-   message history (level 5) resets. The "spawn advisors
-   task-agnostic" rule from Starting Execution step 1
-   applies here too — do not prime re-spawned advisors
-   with upcoming task hints.
+6. **Cycle the instances** if more tasks remain, in this
+   order: spawn the next task's four instances under new
+   task-scoped names (Starting Execution step 1), re-send
+   the plan file path to the new review instance via
+   `SendMessage`, then send each of *this* task's four
+   teammates the structured `SendMessage` message
+   `{"type": "shutdown_request", "reason": "..."}`, then
+   take inventory with `ListAgents`, which no longer lists
+   an exited teammate. A plain-text message, even one that
+   names `shutdown_request`, leaves the teammate alive: it
+   needs the request ID the structured message carries to
+   answer with its `shutdown_response` and exit. The new
+   review instance reads the plan file (which carries
+   checkboxes from prior tasks) to resume scope tracking —
+   same handoff as Starting Execution step 2.
 
-   After re-spawning, re-send the plan file path
-   to the `reviewer` via `SendMessage` — same handoff as
-   Starting Execution step 2. The reviewer reads the plan
-   file
-   (which carries checkboxes from prior tasks)
-   to resume scope tracking.
+   **This order is not interchangeable.** Shutting down
+   first opens a window with no teammate alive, and a
+   teammate idle notification is the only event that can
+   restart a lead that has stopped. The plan re-send moves
+   with the spawn because it is the one message here that
+   arms the subscription (`handoff-verification.md`,
+   Subscribe at Dispatch Time) — spawning alone does not.
+   A production session sent the shutdown requests, never
+   spawned, and the pipeline sat idle 26 minutes until the
+   user asked why nothing was running. Eight live instances
+   at once is expected here; task-scoped names keep them
+   distinct, and a shutting-down teammate that finishes its
+   current request cannot reach the new instances by name.
+
+   A live teammate's context cannot be reset, so a new
+   instance is the only clean one. Without cycling, the
+   developer accumulates failed attempts and trial-and-error
+   patterns from prior tasks, degrading adherence. Cached
+   content 1–4 (system prompt, tools, CLAUDE.md, rules) is
+   unaffected; only per-teammate message history (level 5)
+   resets. The "spawn advisors task-agnostic" rule applies
+   here too.
+
+   **If a teammate rejects the shutdown request**, do not
+   retry it and do not stop to ask the user — execution is
+   unattended. The next task's instances are already spawned
+   under distinct names, so a refusal cannot block them:
+   record in the plan file which instance refused to exit
+   and continue. A refusing instance is harmless once
+   nothing addresses it by name; blocking on it is not.
 
 7. **Send the next task** to the developer, or proceed to
    plan completion if all tasks are done. Include relevant
@@ -652,10 +734,12 @@ When the **reviewer messages you directly** with approval
 - Codebase analysis and planning
 - Plan queue management (ordering, supersession)
 - Sending tasks to the developer
-- Committing approved work with plan updates (single commit
-  per task) — squash WIP, update plan, stage, commit
-- Plan progress tracking (marking checkboxes)
-- Plan status changes (Completed, Canceled)
+- Committing approved code (one commit per task) — squash
+  WIP, stage, commit
+- Plan progress tracking (marking checkboxes in the working
+  tree; not committed)
+- Plan status changes (Completed, Canceled) — a local edit,
+  not a commit
 
 **You delegate:**
 - All implementation (developer) — source code and tests
@@ -685,10 +769,6 @@ without a `name`. Using `TaskOutput` on a teammate returns
 "no task found" — this is expected behavior, not a sign
 that the agent is stuck.
 
-The developer-reviewer rejection loop is opaque to you.
-The reviewer messages you directly on approval — you do
-not need to monitor this exchange.
-
 **Act on idle notifications, not timers.** When a
 teammate's turn ends, you receive its idle notification at
 once, with its final text. An idle teammate resumes only
@@ -703,8 +783,9 @@ from that teammate:
   let it wait; that event wakes it.
 - Anything else is a stall, even when the text reads like
   progress — no deliverable, or a result it says it sent
-  that never reached you. Message it at once with what you
-  need.
+  that never reached you. Re-send what it owes the next
+  move for at once — the task, the consult, the sign-off
+  request — not a status query.
 
 `ListAgents` shows whether a teammate is `running` or
 `idle` when you need its state between notifications. Do
@@ -713,12 +794,13 @@ only delays noticing a stall that the idle notification
 already shows — prior sessions lost over ten minutes per
 stall that way.
 
-**If the developer appears unresponsive:**
-1. Send a status check via `SendMessage`
-2. If still no response, send the message again — the
-   agent may have missed it
-3. If the developer remains unresponsive after two attempts,
-   inform the user and ask how to proceed
+**Every teammate idle notification obliges you to run the
+handoff check** — `ListAgents` plus `git status` / `git log`
+against who owes the next move. An agent that should be
+`running` but is `idle` means the handoff was dropped. The
+procedure, the prohibition on status queries, and the
+recovery path when an agent is unreachable are in
+`handoff-verification.md`.
 
 ## Asking the User
 
@@ -740,14 +822,18 @@ When you find existing plans in the plans directory:
 2. Present a summary to the user — which plans are
    incomplete, which are completed, which are canceled
 3. Ask which plans to resume, modify, or abandon
-4. If resuming, check which tasks are already committed
-   (look for completed checkboxes in the plan) and continue
-   from the next incomplete task — re-implementing committed
-   work wastes effort and creates duplicate commits
-5. Spawn all four teammates before resuming execution, as
-   in Starting Execution step 1 — teammates do not persist
-   across sessions or survive `/resume`
-6. Send the plan file path to the `reviewer` via
+4. Determine which tasks are already done and continue
+   from the next incomplete one — re-implementing committed
+   work wastes effort and creates duplicate commits. Read
+   the plan's checkboxes, then **cross-check `git log`**:
+   plan files are not committed, so the checkboxes and the
+   commits can disagree after a crash, a rebase, or a move
+   to another machine. Where they disagree, the commits
+   win.
+5. Spawn task-scoped instances before resuming execution —
+   teammates do not persist across sessions (Starting
+   Execution step 1)
+6. Send the plan file path to the review instance via
    `SendMessage` — same handoff as Starting Execution
    step 2, so the reviewer can resume scope verification
    and plan tracking
@@ -766,21 +852,25 @@ When all tasks in a plan are committed:
 
    If any target is not met, add follow-up task slices to
    the plan that close the gap and continue execution
-   through the normal pipeline. Do not mark the plan
-   complete until the measured results meet the stated
-   targets. The plan was approved by the user with those
+   through the normal pipeline. Append them here even if
+   the plan then exceeds seven tasks — the limit governs
+   authoring; re-splitting mid-execution strands the queue
+   position and the reviewer's scope tracking. Do not mark
+   the plan complete until the measured results meet the
+   stated targets. The plan was approved by the user with those
    targets — weakening them without the user's explicit
    initiative creates a shortcut for incomplete delivery.
 
-2. **Update the plan status** to "Completed" and commit:
-   `docs(<scope>): mark plan complete`. Task-level progress
-   (checkboxes) was recorded in each task's commit
-   during execution — this final status update is the
-   plan-level closure.
+2. **Update the plan status** to "Completed" in the plan
+   file. This is a local edit, not a commit — plan files
+   are not committed (see Planning).
 3. Report to the user:
    - Summary of what was implemented
    - List of commits (SHAs and messages)
    - Any accepted risks or trade-offs noted by advisors
+   - **Every decision you defaulted during unattended
+     execution** — what the choice was, which option you
+     took, and why (see Execution Runs Unattended)
    - Any TODO items for future work
    - An offer to plan the change the plan's Goal says it
      prepares, and each Non-Goal marked `(separate plan
@@ -791,96 +881,18 @@ When all tasks in a plan are committed:
 **New tasks after completion.** Each plan covers one
 feature or task. When the user requests a new task:
 
-1. **Shut down all teammates** — send each the
+1. **Shut down the current instances** — send each the
    structured `shutdown_request` message (After Reviewer
-   Approval step 6) and wait until all have exited. The
-   teammates from the final task still hold that task's
-   context; the new plan gets fresh teammates at Starting
-   Execution.
+   Approval step 6). The teammates from the final task are
+   still alive, and their task-scoped names belong to a
+   finished task.
 2. **Restart the full cycle** — clarification → planning →
-   queue insertion → Starting Execution. Do not reuse the
-   previous plan or skip clarification — the new task has
-   its own scope, risk profile, and advisor needs.
+   queue insertion. Teammates are spawned later, at
+   Starting Execution step 1, not during planning. Do not
+   reuse the previous plan or skip clarification — the new
+   task has its own scope, risk profile, and advisor needs.
 
-## Skill-Output Commits
+## Commits
 
-You make all commits — code commits (after reviewer
-approval) and skill infrastructure outputs. For skill
-outputs, **commit files that a skill's `SKILL.md` explicitly
-names as outputs — immediately after the skill completes.**
-
-The skill procedure determines what is written; you execute
-it mechanically. This is not a general permission to commit
-files you write based on your own judgment — that is
-implementation work and must go through the
-developer-reviewer pipeline.
-
-**The test:** if you removed the skill invocation, would
-this file still need to exist? If yes, it is project work
-that belongs in the pipeline. If no, it is skill
-infrastructure that you commit directly.
-
-This covers:
-- `/project-init` outputs — `CLAUDE.md`, `Cargo.toml` lint
-  config, TypeScript strictness config, code intelligence
-  plugin entries in `.claude/settings.json`
-- `/ensure-ai-dirs` outputs — plan format guide, review
-  checklist, `completed/CLAUDE.md`, finished-plan moves
-  into `completed/`
-- Plan status changes — marking plans Completed or Canceled
-  after execution ends (task-level updates ride in each
-  task's commit during execution)
-
-See Commit Timing below for when these commits run — skill
-outputs always land in a team-down window since skills run
-before any teammates are spawned for a task.
-
-## Commit Timing
-
-While teammates are running, the only commits you make
-are the post-approval task commit sequence (steps 2–6 of
-After Reviewer Approval). Those are bounded by the squash
-reset at step 2 and use the reviewer's handoff data as
-input.
-Every other lead commit — skill outputs, plan file commits,
-plan-status updates, and user-directed ad-hoc changes (doc
-tweaks, convention updates, small fixes) — happens only in
-a team-down window.
-
-**Team-down windows** (no teammates running):
-- Before the first teammates are spawned (initial
-  planning, skill runs, user clarifications).
-- Between the shutdown of all teammates and their
-  re-spawn in the inter-task cycle (step 6 of After
-  Reviewer Approval).
-- After the final shutdown at plan completion or
-  abandonment.
-
-**When the user requests a lead-side change while
-teammates are running**, note it and commit it in the next
-team-down window. Do not commit ad-hoc changes while
-teammates are running, even if the change is small and the
-files do not overlap with the developer's WIP.
-
-**Why.** The post-approval squash runs
-`git reset <baseline-sha>`, which wipes every commit
-between the task's baseline and HEAD. An ad-hoc commit made
-while teammates are running lands in that range and is
-lost at squash time. A production incident committed two
-user-directed doc changes on top of the developer's WIP;
-the commits were stranded between baseline and WIP and
-required an emergency history reorder (stash + reset +
-cherry-pick ×3 + pop) while the developer was actively
-editing — the developer's uncommitted work was at risk
-because the doc commits happened to not touch the WIP
-files, not because the sequence was safe. The safe rule is
-not "commit carefully during a task" — it is "do not commit
-at all until the team is down."
-
-## Conventional Commits
-
-This blueprint uses conventional commit prefixes. The
-reviewer composes code commit messages — commit type
-definitions live in the reviewer's agent file. For
-skill-output commits (see above), use `chore` for
-infrastructure artifacts and `docs` for plan files.
+Skill-output commits, commit timing, and conventional-commit
+prefixes are all in `commit-sequence.md`.

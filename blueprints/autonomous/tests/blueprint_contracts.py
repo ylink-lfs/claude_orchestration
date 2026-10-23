@@ -7,12 +7,15 @@ When the blueprint changes, update this file and the tests follow.
 REQUIRED_CLAUDE_FILES: list[str] = [
     "CLAUDE.md",
     "settings.json",
+    "rules/handoff-verification.md",
+    "rules/commit-sequence.md",
 ]
 
 # Required directories relative to blueprint root
 REQUIRED_DIRECTORIES: list[str] = [
     ".claude",
     ".claude/agents",
+    ".claude/hooks",
     ".claude/rules",
     ".claude/skills",
     ".claude/skills/ensure-ai-dirs",
@@ -20,8 +23,9 @@ REQUIRED_DIRECTORIES: list[str] = [
     ".claude/skills/project-sanity",
 ]
 
-# Required files relative to blueprint root (outside .claude/)
+# Required files relative to blueprint root
 REQUIRED_ROOT_FILES: list[str] = [
+    ".claude/hooks/agentbg.py",
     ".claude/skills/ensure-ai-dirs/SKILL.md",
     ".claude/skills/ensure-ai-dirs/claude-md-template.md",
     ".claude/skills/ensure-ai-dirs/completed-claude-md-template.md",
@@ -116,4 +120,14 @@ AGENT_MODELS: dict[str, str] = {
     "security-engineer": "sonnet[1m]",
     "plan-reviewer": "sonnet[1m]",
     "design-advisor": "opus[1m]",
+}
+
+# Agent reasoning effort — required effort for each agent.
+AGENT_EFFORT: dict[str, str] = {
+    "developer": "high",
+    "reviewer": "high",
+    "test-engineer": "high",
+    "security-engineer": "high",
+    "plan-reviewer": "high",
+    "design-advisor": "high",
 }
