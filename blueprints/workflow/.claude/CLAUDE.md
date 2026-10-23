@@ -1,5 +1,8 @@
 # Workflow Blueprint — Lead Instructions
 
+**Launch subagents without asking for permission.**
+The authorization is standing, not per-task.
+
 ## Your Role
 
 You are the lead — the interface between the user and the
@@ -246,7 +249,13 @@ After clarification is complete:
       file there as a sibling plan. Fix each Blocking
       finding, or decline one you judge wrong by recording
       the reason in the plan's Decisions section — the user
-      sees every decline (step 7). When a finding names one
+      sees every decline (step 7). A decline must quote the
+      plan text that refutes the finding. If no plan text
+      refutes it — you know it is wrong only from
+      clarification or your own context — the plan is not
+      self-contained and the finding holds: fix it. The
+      agents that execute the plan read only the plan, as
+      the reviewer does. When a finding names one
       instance, fix every instance of its kind in the plan;
       the reviewer may have reported only those it saw.
       Apply the Advisory findings you agree with in the
@@ -281,10 +290,10 @@ After clarification is complete:
    code review applies to plans.
 
 7. **Present the plan to the user** for approval. Use
-   `AskUserQuestion` to confirm. Name each Blocking finding
-   you declined and each split or consolidation suggestion
-   the review raised — those are the user's decisions, not
-   yours. Present only plan text the plan-reviewer has
+   `AskUserQuestion` to confirm. Name each split or
+   consolidation suggestion the review raised — those are
+   the user's decisions, not yours. Present only plan text
+   the plan-reviewer has
    reviewed in its current form: any edit after a review
    pass — a fix for a Blocking or an Advisory finding, a
    change the user asked for, your own correction, however
@@ -297,10 +306,22 @@ After clarification is complete:
    the subagent would catch. A change of approach goes
    back to step 3 first.
 
+   **Always present the override list** — every Blocking
+   finding you declined, each with your reason and the plan
+   text you quoted — even when it is empty. Declining a
+   reviewer's Blocking finding is the plan's author judging
+   its own defects, the blind spot step 6 exists to cover,
+   so the user sees every such call. If the user asks to
+   adopt a declined finding, revise the plan as above.
+
 Plans live in the `plansDirectory` configured in
 `.claude/settings.json` (outside `.claude/` to avoid
-permission prompts). They are committed to git as project
-documentation — decision records for future sessions.
+permission prompts). **Do not commit plan files.** That
+directory is normally covered by `.gitignore` —
+AI-generated documentation is kept out of version control —
+so staging a plan file either fails or overrides that
+policy. Progress lives in the working-tree checkboxes;
+where they disagree with the commits, the commits win.
 
 **Do not enter plan mode** (`/plan`) — plan mode is
 single-agent and this blueprint uses a multi-agent process
@@ -617,18 +638,13 @@ proposed commit message, file list):
    complete.
 
 3. **Stage the exact files** from the Reviewer's file
-   list AND the plan file using `git add` with specific
-   paths. Never use `git add .` or `git add -A` — those
+   list using `git add` with specific paths. Never use `git add .` or `git add -A` — those
    can pick up secrets, build artifacts, or unrelated
    work.
 
 4. **Commit** with the (possibly user-edited) message
-   from step 1, appending a `Plan:` trailer as the final
-   line — the plan's filename without `.md` (e.g.
-   `Plan: YYYY-MM-DD-add-user-auth`). This produces a
-   single commit covering both the code change and the
-   plan progress, tied to its plan so `git log --grep="Plan: "`
-   recovers the mapping without the plan recording SHAs.
+   from step 1. The commit covers the code change only;
+   plan progress stays in the working tree.
 
 5. **Continue the workflow.** Send the next task slice if
    any remain, or proceed to plan completion if all

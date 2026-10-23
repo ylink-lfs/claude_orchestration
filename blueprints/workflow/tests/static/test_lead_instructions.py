@@ -72,3 +72,21 @@ def test_existing_plan_scan_in_clarification(lead_instructions):
         "scan for existing plan files — without this, prior "
         "session work is silently ignored"
     )
+
+
+# --- Plan review cycle: severity gate ---
+
+
+def test_presentation_always_includes_override_list(lead_instructions):
+    """Every declined Blocking finding reaches the user, even when there are none."""
+    text = " ".join(lead_instructions.lower().split())
+    for phrase in (
+        "always present the override list",
+        "even when it is empty",
+        "a decline must quote the plan text that refutes the finding",
+    ):
+        assert phrase in text, (
+            f"CLAUDE.md must say {phrase!r} — declining a reviewer's "
+            f"blocking finding is the author judging its own plan, so the "
+            f"user sees every such call"
+        )

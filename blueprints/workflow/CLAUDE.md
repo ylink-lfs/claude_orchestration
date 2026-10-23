@@ -21,7 +21,8 @@ uv run pytest blueprints/workflow/tests/ -m static -v
 | Path | Purpose |
 |---|---|
 | `.claude/CLAUDE.md` | Lead instructions — clarification, planning, workflow proposal, agent coordination |
-| `.claude/settings.json` | Agent teams config, plans directory path |
+| `.claude/settings.json` | Agent teams config, plans directory path, SessionStart hook injecting the standing subagent authorization, hooks wiring `agentbg.py` |
+| `.claude/hooks/agentbg.py` | Holds a teammate at TeammateIdle until it has seen the result of a command it ran in the background — a teammate is not woken when such a command finishes |
 | `.claude/agents/developer.md` | Implements all code — source and tests (Sonnet) |
 | `.claude/agents/reviewer.md` | Quality gate — scope verification, composes the proposed commit message; lead commits (Opus) |
 | `.claude/agents/test-engineer.md` | Advisory — test design and verification (Sonnet) |
