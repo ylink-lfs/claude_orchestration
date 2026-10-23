@@ -15,6 +15,7 @@ SDK quirks and design decisions (claude-agent-sdk 0.1.48, CLI 2.1.76):
   directly must pass system_prompt (with preset append) to override this.
 """
 
+import json
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -105,6 +106,13 @@ def fixture_project(tmp_path: Path) -> Path:
     Returns the tmp project root, ready for Claude Code sessions.
     The .ai/plans/ directory is created at runtime by the
     ensure-ai-dirs skill, so it does not need to be pre-created.
+
+    The blueprint's SessionStart hook is stripped from the copied
+    settings.json. That hook injects a standing subagent
+    authorization into the message stream, which pushes sessions
+    toward delegating — the opposite of what tests asserting direct
+    tool use need. Authorization behavior is not what this lane
+    measures.
     """
     # Copy minimal project files
     for item in FIXTURES_DIR.iterdir():
@@ -117,6 +125,11 @@ def fixture_project(tmp_path: Path) -> Path:
     # Copy blueprint .claude/ directory
     dest_claude = tmp_path / ".claude"
     shutil.copytree(BLUEPRINT_CLAUDE_DIR, dest_claude)
+
+    settings_file = dest_claude / "settings.json"
+    settings = json.loads(settings_file.read_text())
+    settings.pop("hooks", None)
+    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
 
     return tmp_path
 
