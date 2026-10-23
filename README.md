@@ -53,6 +53,7 @@ Rules in `/.claude/rules/` guide blueprint development:
 | `handoff-coverage.md` | Every pipeline guarantee needs an owner with sufficient input |
 | `simplicity.md` | KISS, YAGNI, fewest elements |
 | `behavior-preserving-cuts.md` | Only cut prose that doesn't change agent behavior |
+| `instruction-form.md` | Fix timing failures with artifact fields, harness events, or withdrawn authorizations — not more prose |
 | `self-check.md` | Post-change verification checklist |
 | `hooks-guide.md` | When and how to use Claude Code hooks |
 
@@ -225,7 +226,7 @@ graph TD
     Lead -->|changes code| DA[Design Advisor report<br/>+ user decides proposals]
     DA --> Lead
     Lead -->|write plan| PR[plan-reviewer<br/>subagent]
-    PR -->|cycle until clean| Lead
+    PR -->|cycle until no<br/>blocking issues| Lead
     Lead -->|present plan| UPlan{User approves<br/>plan?}
     UPlan -->|revisions| Lead
     UPlan -->|approved| WS{User picks<br/>workflow}
@@ -337,14 +338,113 @@ graph TD
     UR -->|approved| Commit[Lead commits]
     Commit -->|next task of the plan| Risk
 ```
+### Quota Cost Reference
+
+Rough subscription-quota cost of running a blueprint, measured
+from local transcripts. Use these figures to judge whether a
+plan fits the remaining quota before starting it.
+
+**Calibration.** Dollar figures are API list prices computed
+from transcript token counts (Sonnet 5.5: $2 input,
+$10 output, $0.20 cache read per MTok; Opus 5.5: $4 input,
+$20 output, $0.20 cache read; cache writes cost 1.25× input
+for the 5-minute TTL and 2× for the 1-hour TTL). These
+dollar figures were mapped to quota using one observed
+headless test run: about $85 used roughly 13% of the weekly
+quota and nearly filled the 5-hour window. That gives:
+
+| Quota | API-price equivalent |
+|---|---|
+| 1% of weekly quota | ~$6.5 |
+| One 5-hour window | ~$85 (conservative; other sessions shared that window) |
+
+These figures apply to one account plan and the model prices
+above. Re-derive them if either changes.
+
+**Plan-review** (Sonnet 5.5 `plan-reviewer`, Opus 5.5 lead;
+202 rounds across 16 review cycles):
+
+| Unit | Cost | Weekly | 5-hour |
+|---|---|---|---|
+| One reviewer launch | $0.73 (IQR $0.50–1.03) | 0.1% | 0.9% |
+| Lead triage and plan revision between rounds | $0.53 (IQR $0.36–0.81) | 0.1% | 0.6% |
+| One full round (reviewer + lead) | $1.35 (IQR $1.0–1.7) | 0.2% | 1.6% |
+| Plan written → approved, 5 rounds | ~$7 | ~1% | ~8% |
+| Plan written → approved, 10 rounds | ~$13.5 | ~2% | ~16% |
+| Observed cycles (median 10.5 rounds) | median $19, range $4–33 | ~3% | ~23% |
+
+Cost per round stays flat across rounds, so the total grows
+linearly with the round count. Observed cycles cost more than
+10 × the round median because some rounds include longer
+lead discussion with the user.
+
+**Task execution** (one 6-task frontend plan; Sonnet 5
+developer and test engineer, Opus 5 reviewer and lead, priced
+at 5.5 rates; a single plan, so treat these figures as
+indicative):
+
+| Unit | Cost | Weekly | 5-hour |
+|---|---|---|---|
+| One task (developer + reviewer + test engineer + lead share) | $6–16, median ~$10 | 1–2.5% | 7–19% |
+| Whole plan: 6 tasks plus plan-review and wrap-up | ~$78 | ~12% | ~90% |
+
+The lead is the largest single cost (38% of the execution
+session). Its context is never reset, so it grew from 130k
+to 480k tokens and each lead call got more expensive as tasks
+accumulated. Teammates are replaced per task and their cost
+tracks task complexity instead. Budget about six to eight
+tasks of this size per 5-hour window, fewer if other sessions
+run concurrently.
+
+**Experiments that replay transcripts** through headless
+`claude -p` cost far more per hour than normal development.
+See the cost table in `CLAUDE.md` before running one.
+
+#### Trivial Reference
+
+Same calibration, applied to two other common workloads.
+
+**`/advance-plan` (single-agent plan execution).** The lead
+implements each task itself and launches one Sonnet
+adversarial-review subagent per task. The skill stops after
+one or two tasks, so each session is about two tasks. Sample:
+68 sessions; review subagents account for 20–24% of the cost.
+
+| Lead model | Per task | Weekly | 5-hour | Per session (~2 tasks) |
+|---|---|---|---|---|
+| Opus 5.5 (20 sessions) | median $6.1 (IQR $3.7–8.9) | ~0.9% | ~7% | median $10 |
+| Opus 5 (48 sessions) | median $10.9 (IQR $7.3–20.9) | ~1.7% | ~13% | median $20 |
+
+Under the same Opus 5 era, a single-agent task (median $10.9)
+cost about as much as a team-pipeline task (median ~$10).
+Opus 5.5 sessions are cheaper. The outliers reached $50 per
+task, in sessions where the lead kept working long after its
+review finished.
+
+**chrome-devtools MCP.** Sample: 707 calls and 49 user
+prompts that used the browser.
+
+| Unit | Cost | Weekly | 5-hour |
+|---|---|---|---|
+| One tool call (the model step that reads its result) | median $0.067 (IQR $0.05–0.09) | ~0.01% | ~0.08% |
+| One user prompt that drives the browser (median 7 calls, p90 53) | median $1.8 (IQR $0.7–4.0, p90 $9.2) | ~0.3% (p90 1.4%) | ~2% (p90 11%) |
+
+A call adds only about 1k new tokens (p90 3k; a `take_snapshot`
+of a large page reaches 9k). Its cost comes from re-reading the
+session context, which had a median of 210k tokens when each
+call was made. A call is therefore cheap in a fresh session and
+gets more expensive as the conversation grows. Long `evaluate_script`
+loops (482 of the 707 calls) are the usual source of p90 prompts.
 
 ## Devcontainer Templates
 
-`devcontainer_templates/.devcontainer/` is a Docker
-Compose-based sandbox for running agents in isolation.
-PulseAudio passthrough (Linux) is a Compose overlay, loaded
-by default — remove it from `dockerComposeFile` on macOS and
-Windows.
+`devcontainer_templates/` provides Docker-based sandboxes
+for running agents in isolation. Two variants are available:
+
+| Template | Directory | Platform |
+|----------|-----------|----------|
+| **Base** | `.devcontainer/` | Cross-platform |
+| **Audio** | `.devcontainer_audio/` | Linux (PulseAudio passthrough) |
 
 ```bash
 # Copy into your project
@@ -353,33 +453,36 @@ cp -r devcontainer_templates/.devcontainer/ /path/to/your/project/.devcontainer/
 
 **Features:**
 
-- **Dual auth mode** — proxy (default) or OAuth, controlled
-  by `CLAUDE_AUTH` in `.devcontainer/.env`
-- **Resource limits** — per-developer CPU and memory caps
-  via `DEVCONTAINER_CPUS` and `DEVCONTAINER_MEMORY`
-- **Secrets outside the container config** — tokens in
-  `.devcontainer/.env.credentials` are read by the shell,
-  never by Compose, so they stay out of logs and
-  `docker inspect`
-- **Per-checkout volumes** — Claude config, shell history,
-  and pnpm store isolated per checkout
-- **Host config as template** — `~/.claude/` and
-  `~/.claude.json` mounted read-only, copied onto the Claude
-  config volume once
-- **Claude survives rebuilds** — settings, login and the
-  global config (`.claude.json`, via `CLAUDE_CONFIG_DIR`)
-  live on the Claude config volume
-- **Plugins ready on start** — official plugins the project
-  enables are installed automatically; the TypeScript and
-  Python language servers are preinstalled
+- **Dual auth mode** — OAuth (default) or proxy, controlled
+  by `CLAUDE_AUTH` in `.devcontainer/.env.local`
+- **Scoped network proxy** — build-time (`apt-get`, install
+  scripts) proxies via `devcontainer.json`'s `build.args`;
+  at runtime, `claude` runs through `claude-proxy.sh`, which
+  routes only Claude Code's own traffic through a local
+  SOCKS/HTTP proxy. Every other runtime command (DB clients,
+  `redis-cli`, etc.) uses the container's default network
+  path, riding the host's system network settings (e.g. a
+  company VPN)
+- **Project-scoped volume** — Claude config and history
+  isolated per project
+- **Host config as template** — `~/.claude/` mounted
+  read-only, copied into container on startup; OAuth
+  credentials are never copied — each container logs in once
 - **Latest Claude Code on start** — `claude update` runs on
   every start, so the first session needs no restart to
   pick up an update
+- **Plugins ready on start** — official plugins the project
+  enables are installed automatically; the TypeScript and
+  Python language servers are preinstalled
 
-See the template's
-[README](devcontainer_templates/.devcontainer/README.md) for
-configuration, auth modes, troubleshooting, and migrating
-from the `.env.local` layout.
+See each template's README for auth configuration,
+troubleshooting, and mount details.
+
+Running `blueprints/autonomous` inside a devcontainer is
+recommended — the lead commits without per-task user
+checkpoints, so container-scoped file writes and git state
+contain the blast radius of an unwanted change to the
+sandbox, not the host checkout.
 
 ## Contributing
 

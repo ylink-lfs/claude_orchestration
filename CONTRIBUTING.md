@@ -17,6 +17,7 @@ blueprints/<name>/
 ├── .claude/
 │   ├── CLAUDE.md            ← Lead instructions (session behavior)
 │   ├── settings.json        ← Agent teams config, plans directory
+│   ├── hooks/               ← Hook scripts wired in settings.json
 │   ├── agents/              ← Agent definitions (frontmatter + instructions)
 │   ├── rules/               ← Unconditional + conditional rules
 │   ├── skills/              ← Reusable procedures (with co-located templates)

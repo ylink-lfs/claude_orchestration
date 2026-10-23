@@ -60,8 +60,11 @@ Reviewer, Test Engineer, Security Engineer) plus the lead
 and two subagents: `design-advisor` (proposes design
 improvements and preparatory refactors before every
 code-changing plan) and `plan-reviewer` (launched before
-user plan presentation). The lead stays responsive to the
-user during execution.
+user plan presentation). Teammates are task-scoped and
+replaced between task slices. Execution assumes no one is
+watching: after plan approval the lead stops for the user
+only to lower an acceptance target or to avoid damage,
+while staying available for new requests.
 
 ### direct-review
 
@@ -82,12 +85,9 @@ directory.
 
 ### devcontainer_templates
 
-Docker Compose-based sandbox for agent execution:
-per-checkout volumes for Claude config and shell history,
-CPU/memory limits, dual auth mode (`proxy`/`oauth`) via
-`CLAUDE_AUTH`, secrets read by the shell instead of Compose,
-and a PulseAudio overlay loaded by default. The root
-`.devcontainer` is a symlink to the template.
+Docker-based sandboxing for agent execution. Project-scoped
+volume for Claude config, dual auth mode (`proxy`/`oauth`)
+via `CLAUDE_AUTH` env var, base and audio variants.
 
 ## Language
 
@@ -114,6 +114,51 @@ avoid mistakes. One line each. Remove when no longer true. -->
 - Rule files and CLAUDE.md files target under 200 lines — agent adherence degrades beyond that threshold
 - Blueprint files are cached at prompt cache level 3 — no dynamic content (dates, counters, versions)
 - Test suite uses pytest with `-m static` marker for structural verification
+
+## Quota Cost of Transcript-Replay Experiments
+
+Evaluating blueprint changes by replaying local
+transcripts through headless `claude -p` calls drains
+the subscription quota far faster than it looks: every
+call is small, but a full-dataset run fans out to
+hundreds of calls in parallel. One afternoon run of about
+470 calls used roughly 13% of the weekly quota and nearly
+filled the 5-hour window. In an earlier run, the 5-hour
+limit hit mid-flight, and the aborted calls were billed
+but their output was discarded.
+
+Calibration from that run (API list price as reported by
+`total_cost_usd`; about $85 ≈ 13% weekly, so about $6.5
+per 1%):
+
+| Call shape | Tokens per call | Cost per call | 1% weekly ≈ |
+|---|---|---|---|
+| Single-shot, no tools, ~15k input, Sonnet | ~15k cache write, ~1k out | $0.04–0.07 | 100–150 calls |
+| Same, Opus | same | ~$0.16 | ~40 calls |
+| Agentic replay (Read/Glob/Grep on a repo tree), ~25 turns, ~210k peak context, Sonnet | ~1.5M cache read, ~220k write, ~20k out | ~$1.4 | ~5 runs |
+| Same, Opus | same | ~$2.8 | ~2–3 runs |
+
+Agentic replays dominate because each turn re-reads the
+whole accumulated context. Scale with
+`calls × cost per call`, not with the size of the dataset.
+Treat a run of about $85 as one full 5-hour window.
+
+Before any full-scale run:
+
+1. Pilot 4–8 samples and read `total_cost_usd` from
+   each result.
+2. Extrapolate to the planned call count. Every repeat,
+   rater, and model arm multiplies it.
+3. Show the user the estimate as a weekly-quota
+   percentage, and get approval before launching.
+4. Prefer a sample subset, Sonnet, or single-shot
+   judging over stored reports, rather than replaying
+   the full dataset.
+5. Keep concurrency low enough that a 5-hour limit
+   cannot abort calls that are already in flight.
+
+The calibration ties to one account plan and the current
+model prices. Re-derive it if either changes.
 
 ## References
 
