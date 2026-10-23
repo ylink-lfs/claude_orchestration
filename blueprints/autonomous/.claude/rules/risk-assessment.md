@@ -105,6 +105,9 @@ indicators above. If any match:
   expertise to specify the controls. The lead's job is to
   identify the risk category; the advisor's job is to
   specify the response.
+- **Require both gates.** The task message must require
+  the consulted advisor's input before implementation and
+  its sign-off before reviewer submission.
 
 This dispatch-time check exists because a production
 incident showed that when the lead prescribed mitigations in

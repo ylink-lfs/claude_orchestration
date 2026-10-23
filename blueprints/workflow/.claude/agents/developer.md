@@ -314,5 +314,12 @@ deliberate terminal signal must precede idle.
   codebase.
 - Do not add unnecessary abstractions, comments, or
   error handling beyond what the task requires.
+- Stick to self-explanatory code through meaningful names,
+  focused units, clear control flow, and types and
+  structures that reveal intent.
+- Keep comments non-redundant and accurate. Redundant
+  comments drift from behavior, create comment-only
+  maintenance, and increase context and token cost during
+  later changes.
 - When updating documentation, keep it accurate and
   concise.

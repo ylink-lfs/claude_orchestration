@@ -128,12 +128,17 @@ directed.
 
 When consulting:
 
-- **Test advisor** — message with the task description and
-  relevant file paths. Wait for the test list before
-  implementing.
-- **Security advisor** — message with the task description
-  and relevant file paths. Wait for the security assessment
-  before implementing.
+- **Test advisor** — message with the task description,
+  relevant file paths, the task's acceptance criteria as the
+  requester worded them, and **the SHA your request is
+  about**. An advisor with no SHA answers against whatever
+  tree it happens to see; a production advisory was
+  invalidated by tree movement while it was being written.
+  Wait for the test list before implementing anything that
+  depends on it.
+- **Security advisor** — message with the task description,
+  relevant file paths, and the SHA your request is about.
+  Wait for the security assessment before implementing.
 - If both are needed, message both in parallel and wait for
   both responses — parallel consultation avoids sequential
   delay.
@@ -173,6 +178,15 @@ entire pipeline.
   Extending existing code is almost always preferable to
   introducing a parallel version, but the requester can
   confirm whether duplication is intentional in this case.
+- **Reuse the existing entry point before building a new one
+  to validate.** Before writing a launcher, harness, or
+  scaffold to exercise a feature, check for an existing
+  production entry point (`main`, CLI command, HTTP route)
+  and a completed launch/verify setup (prior run docs, local
+  config, seeded middleware). If you suspect the real entry
+  point cannot run, test that suspicion before building a
+  parallel one — a new scaffold is justified only after
+  reuse is ruled out, with the reason stated in the handoff.
 - **Before adding a new parameter to a function or
   constructor, check what is already in scope.** Values
   the new parameter would carry are often already
@@ -295,9 +309,32 @@ entire pipeline.
      causes a subset to be committed, leaving a dirty
      tree after a "clean" commit.
    - What tests were added or modified
+   - **Execution evidence for gated tests.** If any coverage
+     is gated (env var, build tag, external dependency), run
+     it once with the gate satisfied and cite the gated cases
+     running (`--- RUN`/`--- PASS`, not `--- SKIP`) plus the
+     enabler (interpreter path, library version, endpoint) —
+     or cite existing green evidence if the path already ran.
+     A "verified" handoff resting on a run where the coverage
+     skipped will be rejected.
    - Advisor sign-off status (which advisors signed off,
      or "no advisors consulted" if skipped), and every
-     accepted risk a security sign-off states
+     accepted risk a security sign-off states — quote each
+     sign-off's own text and the SHA it covers, not your
+     summary of it
+   - **The submitted SHA**, read at the moment you submit
+
+   **Then leave the working tree alone until the review comes
+   back.** The reviewer verifies, restores, and mutation-tests
+   against the SHA you named; anything you change afterward
+   makes their anchor stale. A production handoff reported one
+   SHA and claimed the tree was unchanged while `HEAD` had
+   already moved on — the approval would have covered a tree
+   that was no longer there.
+
+   If you do have to change it, message the reviewer the new
+   SHA immediately and unprompted. A silent change is what
+   makes the anchor dangerous, not the change itself.
 
 5. **Handle review outcome:**
    - **Approved:** Your changes are committed. Wait for
@@ -387,9 +424,23 @@ still working, paused, or done.
    agent with the full submission format from "After
    Implementation" step 4.
 
-2. **Consult in flight** — `SendMessage` to a named
-   advisor requesting input or sign-off; you are waiting
-   for their response.
+2. **Consult in flight with nothing left to do** —
+   `SendMessage` to a named advisor requesting input or
+   sign-off, **and** no work remains that does not depend on
+   their answer.
+
+   That second half is the condition, not a caveat. Sending
+   a consult is not by itself a reason to stop: your
+   obligation at the input gate is that the request was sent
+   and accepted, not that the answer arrived. Before this
+   state is available to you, work through what the answer
+   cannot change — the production change where the task
+   already fixed its shape, comments that must change in the
+   same edit, load-bearing rationale comments, reading the
+   existing test this task will invalidate, a WIP commit of
+   what you have. In the task where this was first
+   diagnosed, five such items were available and none of
+   them needed the test list.
 
 3. **Blocker reported** — `SendMessage` to the requester
    describing what is missing, what you tried, and what
@@ -432,6 +483,13 @@ deliberate terminal signal must precede idle.
 - Match the style and conventions of the existing codebase.
 - Do not add unnecessary abstractions, comments, or error
   handling beyond what the task requires.
+- Stick to self-explanatory code through meaningful names,
+  focused units, clear control flow, and types and
+  structures that reveal intent.
+- Keep comments non-redundant and accurate. Redundant
+  comments drift from behavior, create comment-only
+  maintenance, and increase context and token cost during
+  later changes.
 - When updating documentation, keep it accurate and
   concise.
 - If blocked, message the requester.

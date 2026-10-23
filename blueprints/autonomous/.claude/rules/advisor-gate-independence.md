@@ -42,6 +42,10 @@ Each gate must be satisfied by its own advisor.
   start fresh. Prior guidance does not carry forward
   unless the requester explicitly passes it in the task
   dispatch.
+- **Passing tests without the advisor's sign-off.** The
+  output gate verifies that what the advisor specified was
+  not skipped, weakened, or replaced during
+  implementation.
 
 ## How to Apply
 
@@ -64,6 +68,47 @@ advisors, the handoff must show four gate citations. A
 handoff that cites three and claims the fourth "was
 covered by the other advisor" is grounds for rejection —
 send it back for the missing explicit sign-off.
+
+## What the Output Gate Covers
+
+Each output gate covers its own advisor's property. The test
+advisor's: **was the intended test coverage weakened?** —
+skipped, deleted, narrowed, replaced with a weaker
+assertion, or left with its consolidations unexecuted. The
+security advisor's: the implementation's treatment of the
+risks its assessment identified.
+
+Neither covers whether comments or documentation in the
+diff are *true*. That is the reviewer's, and no advisor's
+sign-off is evidence of it. A pure-comment increment has
+zero new test surface, so the test advisor's sign-off on it
+means "no new uncovered behavior" — not "these fourteen
+comment lines are accurate." A production reviewer had to
+draw this line mid-review and verify the comments itself.
+
+A pure-comment or pure-documentation increment still needs
+one line of confirmation from each consulted advisor. It
+does not need the whole assessment re-run.
+
+State the boundary in the sign-off itself, along with the
+SHA it covers: what was compared against, and what is not
+covered.
+
+## Which SHA the Output Gate Covers
+
+**By default the output gate must cover the exact SHA
+submitted to the reviewer.**
+
+One exception: the increment beyond the signed SHA is
+**purely test code** — touching no production file, comments
+included — and the advisor has explicitly called that
+increment non-blocking. Then the work may be submitted with
+both SHAs stated in the handoff, and the reviewer decides.
+
+**If the increment touches production code at all, there is
+no exception.** This rule exists because the alternative is
+adjudicating the question freshly every time it comes up,
+which a production program did more than once.
 
 ## Why This Matters
 

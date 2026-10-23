@@ -271,6 +271,39 @@ tests that exercise the preserved behavior through its
 public entry points are proportionate coverage, whether
 they existed before or a preceding commit added them.
 
+**Mutation-verify the load-bearing assertions.** A test that
+runs and passes can still assert nothing. For every
+assertion this diff adds or modifies that an acceptance
+criterion depends on, prove it can fail:
+
+1. Check out the SHA under review into a separate worktree
+   (`safe-git.md`).
+2. In the worktree, break the behavior the assertion claims
+   to pin.
+3. Run that test there and confirm it **fails**.
+4. Remove the worktree.
+
+Never mutate the shared working tree — the implementor's work
+lives there. Run this
+yourself — **do not accept the handoff's citation.** "Tests
+pass" is precisely the signal this check exists to
+distinguish from "tests verify." One production program
+found four assertions that could not fail.
+
+Scope it to what this diff added or changed. Existing
+assertions the change did not touch are not yours to
+re-prove.
+
+**A deleted assertion is not itself a finding.** When the
+diff removes an assertion, the question is not "why was it
+removed" — the implementor usually has a reason and it is
+usually true. The two that matter: does the **replacement
+coverage actually exist**, and does the comment pointing at
+it **actually pin that behavior**? A production diff deleted
+an integration-layer assertion with a sound justification,
+and the real defects were that no replacement coverage
+existed and a comment claimed it did.
+
 ### 4. Design
 
 - Apply principles from the rule system: reveals intent,
@@ -290,6 +323,12 @@ they existed before or a preceding commit added them.
   exceptions listed there (state machines, async with
   multiple await points, recursive walks, complex
   early-exit, test builders).
+- Prefer self-explanatory code. The absence of extra
+  explanatory comments is not a finding and must never
+  block approval. Flag comments only when they are
+  inaccurate, stale, contradicted by code, or required by
+  the task but missing. Do not ask for prose merely to
+  describe code.
 - Assess complexity using code mass principles
 - **Flag code the change leaves alive only for tests.**
   For every function, method, type, or interface method

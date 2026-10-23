@@ -8,6 +8,12 @@ blueprint — four documented instances show the same
 pattern: work framed as impossible turns out to be a
 moderate change in the project's own codebase.
 
+The same discipline applies to **positive** claims — "it
+works", "it's tested", "it's verified" — and to your **own**
+predictions, not only to infeasibility claims you receive
+from another agent. A confident "done" backed by nothing
+that ran is as unverified as a confident "can't be done".
+
 ## The Pattern
 
 The implementor optimizes for scope reduction — fewer
@@ -112,6 +118,34 @@ the cited baseline. The failure was a bug introduced in
 Task 1 that shipped to `main` because each subsequent
 task carried the unverified claim forward.
 
+### Positive claims and your own predictions need the same evidence
+
+The bar above is usually described for a claim you *receive*
+that something can't be done. It applies just as much to a
+**positive** claim — "it works", "it's tested", "it's
+verified" — and to a prediction *you* make before acting on
+it ("this won't build", "the real entry point can't run
+locally").
+
+- A positive claim must be traceable to evidence that the
+  path actually ran: which command, which test, and the
+  observed output showing execution — the same specifics
+  demanded of an infeasibility claim.
+- **Existing evidence counts, and only the gap needs work.**
+  If a prior run, a passing lane, or the current repo state
+  already demonstrates the claim, cite that and move on. The
+  requirement bites **only** when no execution evidence
+  exists at all — a path claimed working that was skipped or
+  never run. It does **not** ask you to re-verify claims or
+  acceptance-criteria bullets the repo already satisfies;
+  re-proving already-evidenced facts is wasted work, not
+  diligence.
+- Before acting on your *own* prediction that something is
+  infeasible or too costly, take the cheapest disproving
+  action first (see `exercise-before-concluding.md`). A
+  workaround built on an untested prediction is the same
+  error as accepting an unverified claim from someone else.
+
 ## Why This Matters
 
 Each instance of unverified infeasibility compounds:
@@ -121,3 +155,10 @@ Completed plan and move on — they don't know the work
 was deferred. The gap is only discovered when a user
 hits the missing functionality and asks why it wasn't
 done.
+
+## Related Rules
+
+- `exercise-before-concluding.md` — the general form: run
+  the path before you conclude anything about it.
+- `integration-testing.md` — gated coverage must run once
+  with the gate satisfied before "verified" holds.

@@ -93,6 +93,29 @@ is the signal that the feature is not wired in.
   integration task exists and is not marked complete until
   integration tests pass
 
+## Gated Tests Must Run Once Green
+
+A test gated behind an environment variable, build tag, or
+external dependency (a real interpreter, a running service, a
+network endpoint) provides **zero** coverage on any run where
+the gate is unsatisfied — it emits `SKIP`, and a skipped test
+is indistinguishable from a passing one in the suite summary
+(`ok`, no failures). A feature is not "verified" on the
+strength of a run in which its own integration tests skipped.
+
+- **Run the gated path once with the gate satisfied** before
+  the feature it covers is called verified — install the
+  dependency, set the variable, point at the service.
+- **Show it in the handoff.** Cite the gated cases actually
+  running (`--- RUN` / `--- PASS`, not `--- SKIP`) plus the
+  concrete enabler (interpreter path, library version,
+  service endpoint) so the reviewer can tell coverage from a
+  silent skip.
+- **This is a gap-detector, not a re-run mandate.** The
+  trigger is coverage that *skipped*. Anything already shown
+  green — this run or a cited prior one — is not re-run; only
+  the still-unexecuted gated path needs a green run.
+
 ## What This Does NOT Mean
 
 This rule does not require end-to-end system tests for

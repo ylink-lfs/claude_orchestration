@@ -54,6 +54,16 @@ cover.
    This makes the target measurable by the implementor
    without guesswork.
 
+5. **A skip is not a pass.** An unexpected `SKIP` of coverage
+   the plan requires is a review finding, not silent success
+   — a skipped test contributes nothing but reads as green in
+   the suite summary. Surface skip counts rather than
+   trusting the aggregate `ok`, and treat a feature's own
+   integration tests skipping as a red flag equal to their
+   failing. This detector fires only on the gap (required
+   coverage that skipped); it does not ask you to re-run
+   coverage already shown green.
+
 ## Why This Matters
 
 Quantitative targets are the hardest acceptance criteria

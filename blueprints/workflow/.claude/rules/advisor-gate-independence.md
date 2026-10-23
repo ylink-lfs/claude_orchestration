@@ -43,6 +43,10 @@ Each gate must be satisfied by its own advisor.
   own gates. Prior guidance does not carry forward unless
   the requester explicitly passes it in the task
   dispatch.
+- **Passing tests without the advisor's sign-off.** The
+  output gate verifies that what the advisor specified was
+  not skipped, weakened, or replaced during
+  implementation.
 
 ## How to Apply
 

@@ -50,11 +50,23 @@ advisor's re-confirmation behavior compounded the cost.
 
 **How to apply:** if the requester asks to re-confirm a
 sign-off you already gave, a single "sign-off from prior
-message stands" is the full response. If they ask a third
-time, something structural is wrong on their side — do
-not send a third confirmation; wait for them to escalate
-or send a substantive blocker-style message describing
-what you think is going wrong.
+message stands" is the full response. Repeated re-requests
+mean something structural is wrong on the requester's side
+— say what you think is going wrong rather than sending the
+sign-off again.
+
+**Status is not asked for over this channel.** You will
+never receive a "what is the gate status?" query, because
+the lead reads agent state from `ListAgents` and the tree
+from `git`, not from messages. So a message that looks like
+a status request is a re-request from the requester, and
+rule 2 covers it. An earlier version of this rule told
+advisors to fall silent after a third ask; an advisor
+applied that to what were actually the lead's gate-status
+queries and went silent through three of them, and the lead
+read the silence as a dropped handoff. Removing the reason
+for anyone to ask removes the ambiguity — do not restore a
+silence rule in its place.
 
 ### 3. Read the whole thread before acting on any message
 

@@ -150,14 +150,38 @@ for sign-off:
    place — the file grows and the original cruft is
    preserved. Added tests without removed duplicates is
    a sign-off blocker, not a minor note.
-3. Verify all tests pass (ask the requester for test output
-   or run them yourself).
+3. Verify all tests pass **and that required coverage
+   actually executed** (ask the requester for test output or
+   run them yourself). Gated tests — behind an env var, build
+   tag, or external dependency — must show as *running*
+   (`--- RUN`/`--- PASS`), not `SKIP`: a skipped test is not
+   coverage, and required coverage that skipped **blocks the
+   sign-off**. Cite the execution evidence (the enabler plus
+   the passing gated cases), or cite existing green evidence
+   if the path already ran — do not re-run what is already
+   green.
 4. If tests were altered without justification, or
    consolidations were skipped, message the requester to
    fix them and re-run.
 5. Send your **post-implementation test sign-off** to the
-   requester. This confirms test coverage matches the
-   original specification and the consolidations landed.
+   requester. It must state, in the sign-off itself:
+
+   - **The SHA it covers.** A sign-off without one starts an
+     argument about which tree it applies to. Writing the SHA
+     is what ended that argument in production — an output
+     gate that had to be withdrawn and re-signed twice was
+     unambiguous every time once each signature named its
+     SHA.
+   - **What you compared against** — your test list — and
+     **what the sign-off does not cover**: whether comments
+     or documentation in the diff are accurate. That is the
+     reviewer's (`advisor-gate-independence.md`). Your gate
+     is whether coverage was weakened.
+
+   For a pure-comment or pure-documentation increment, one
+   line of confirmation is the whole response — the test
+   surface did not change. Do not let that confirmation be
+   read as vouching for the content.
 
 ## Guidelines
 

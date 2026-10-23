@@ -13,8 +13,13 @@ invite misinterpretation:
 - Use meaningful names for variables, functions, types,
   files, and sections
 - Structure content to be self-documenting
+- Prefer self-explanatory code through focused units, clear
+  control flow, and types and structures that reveal intent
 - Prefer explicit over clever
-- Comments and annotations explain "why", not "what"
+- Keep comments non-redundant and accurate. Redundant
+  comments drift from behavior, create comment-only
+  maintenance, and increase context and token cost during
+  later changes.
 
 ## KISS — Keep It Simple
 

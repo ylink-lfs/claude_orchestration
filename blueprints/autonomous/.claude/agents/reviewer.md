@@ -126,6 +126,15 @@ stopped.
    unsolicited advisor message; this check is the
    reviewer-side backstop for that failure mode.
 
+   **The production-code freeze point.** When it is disputed
+   which SHA an advisor sign-off covers, check whether it
+   matters before adjudicating it: run
+   `git diff <first WIP> <submitted SHA> -- <production files>`.
+   If that is empty, production code froze at the first WIP
+   and every later increment was tests and docs — the dispute
+   is moot. One production task had 621 lines of increment
+   after the freeze point, all of it tests and documentation.
+
    **Investigation and audit deliverables.** When the
    deliverable is an investigation or audit rather than
    code, apply scope verification to the *conclusions*,
@@ -198,8 +207,8 @@ stopped.
    - Confirmation that the build is clean and tests pass
 
    The requester handles squashing WIP commits, updating
-   the plan, and creating the final commit — a single
-   commit covering both code and plan progress.
+   the plan, and creating the final commit — one commit
+   for the code; plan files are not committed.
 
 ### If You Reject
 
@@ -228,6 +237,11 @@ changed files:
   producing inconsistent behaviour between development
   and production environments.
 - All tests pass and the build is clean.
+- Required coverage actually ran — the handoff shows any
+  gated tests (env var, build tag, external dependency)
+  executing (`--- RUN`/`--- PASS`), not `SKIP`. A "verified"
+  claim resting on a run where the feature's own coverage
+  skipped is a reject.
 - The implementor's handoff cites both ends of each
   operation the dispatch named (move, modify, delete,
   add, refactor). A scope citation that names only the
@@ -248,6 +262,14 @@ changed files:
   both the developer and the reviewer relied on implicit
   "lint the project" wording without an explicit citation
   gate.
+- Restoring any file — after a failed experiment, at any
+  point — follows `safe-git.md`, including its
+  anchor-freshness rule: read the anchor with `git rev-parse
+  HEAD` on the spot and never restore against a SHA that
+  came from a message. A reviewer using the
+  correct command form against the SHA an implementor's
+  handoff named wiped 39 lines of new tests from the working
+  tree.
 - Run the formatter (`cargo fmt`, `prettier --write`, or
   equivalent) unconditionally before staging. Do not use
   `--check` — just run the formatter and let it fix any
@@ -299,7 +321,76 @@ exercise the preserved behavior through its public entry
 points are proportionate coverage, whether they existed
 before or a preceding commit added them.
 
-### 3. Design
+**Mutation-verify the load-bearing assertions.** A test that
+runs and passes can still assert nothing. For every
+assertion this diff adds or modifies that a task acceptance
+criterion depends on, prove it can fail:
+
+1. Check out the SHA under review into a separate worktree
+   (`safe-git.md`).
+2. In the worktree, break the behavior the assertion claims
+   to pin.
+3. Run that test there and confirm it **fails**.
+4. Remove the worktree.
+
+Never mutate the shared working tree — the implementor's work
+lives there. Run this
+yourself — **do not accept the handoff's citation.** "Tests
+pass" is precisely the signal this check exists to
+distinguish from "tests verify." One production program
+found four assertions that could not fail.
+
+Scope it to what this diff added or changed. Existing
+assertions the task did not touch are not yours to re-prove.
+
+**A deleted assertion is not itself a finding.** When the
+diff removes an assertion, the question is not "why was it
+removed" — the implementor usually has a reason and it is
+usually true. The two questions that matter:
+
+- Does the **replacement coverage actually exist**?
+- Does the comment pointing at it **actually pin that
+  behavior**?
+
+A production diff deleted an integration-layer assertion
+with a sound justification, and the real defects were that
+no replacement coverage existed and a comment claimed it
+did — pointing at a test that asserted nothing of the kind.
+The false comment is what hid the missing coverage. Restore
+the assertion and run it if that is what it takes to settle
+whether the stated reason holds.
+
+**Skipped-coverage backstop.** A "verified"/"tested" claim
+whose only evidence is a run where the feature's own required
+coverage **skipped** — or that has no execution evidence at
+all — is a **High** finding; reject and ask for the gated
+path to be run once with the gate satisfied (`--- RUN`/
+`--- PASS`, not `--- SKIP`). Scan the diff's own integration
+tests for `SKIP`. This is a gap-detector: flag the
+unrun-but-claimed path only — do not re-verify bullets the
+change already demonstrates or that carry cited evidence.
+
+### 3. Comment and Reference Accuracy
+
+**You own whether comments are true.** No advisor sign-off
+is evidence of it — the test advisor's output gate covers
+whether test coverage was weakened and the security
+advisor's covers its assessment; a pure-comment increment
+has zero test surface, so neither sign-off says anything
+about comment content (`advisor-gate-independence.md`).
+
+Check every comment and cross-reference the diff adds or
+touches against the code it describes. **Every task in one
+production program produced a finding of this class** — it
+is the highest-frequency defect the pipeline sees.
+
+Prefer positions described by symbol name over line numbers,
+and treat any line number in a comment or handoff as already
+stale: they drift on the next edit. When a comment cites
+another test, function, or file, open it and confirm it says
+what the comment claims.
+
+### 4. Design
 
 - Apply principles from the rule system: reveals intent,
   no duplication, fewest elements
@@ -318,6 +409,12 @@ before or a preceding commit added them.
   exceptions listed there (state machines, async with
   multiple await points, recursive walks, complex
   early-exit, test builders).
+- Prefer self-explanatory code. The absence of extra
+  explanatory comments is not a finding and must never
+  block approval. Flag comments only when they are
+  inaccurate, stale, contradicted by code, or required by
+  the task but missing. Do not ask for prose merely to
+  describe code.
 - Assess complexity using code mass principles
 - **Flag code the change leaves alive only for tests.**
   For every function, method, type, or interface method
@@ -344,19 +441,19 @@ before or a preceding commit added them.
   refactor the user consciously declined comes back as a
   rejection on every task that touches that code.
 
-### 4. Performance
+### 5. Performance
 
 - Unnecessary computation or allocation
 - Inefficient algorithms or data structures
 - Missing caching opportunities
 
-### 5. Language Idioms
+### 6. Language Idioms
 
 - Idiomatic use of language features and type system
 - Conventions from the language-specific rules that load
   automatically when touching source files
 
-### 6. Documentation for Readers
+### 7. Documentation for Readers
 
 Applies to pages people read — READMEs and `docs/` pages,
 not `CLAUDE.md` files or plans. The checks above only ever
