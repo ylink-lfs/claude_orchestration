@@ -36,7 +36,9 @@ reading.
   splitting a plan or adding consolidation work changes the
   scope the user approves, so the user decides, not the
   review cycle. Section 14 is always Advisory — cutting
-  text never changes what gets built.
+  text never changes what gets built. Section 15 blocks at
+  eight or more tasks — splitting by task count keeps the
+  scope the user approves — and is Advisory below that.
 
 **An unclear criterion blocks only when it leaves a
 decision open.** Name two readings a careful implementor
@@ -80,7 +82,7 @@ checklist gets a reviewer's full attention:
 
 | Focus | Sections | Question |
 |---|---|---|
-| `scope` | 1, 8, 9, 10, 11, 12 | Does the plan deliver what the user asked for, as one self-contained plan? |
+| `scope` | 1, 8, 9, 10, 11, 12, 15 | Does the plan deliver what the user asked for, as one self-contained plan? |
 | `criteria` | 2, 3, 7, 14 | Can each criterion be verified without leaving a decision open? |
 | `impact` | 4, 5, 6, 13 | What does the change leave stale or break elsewhere? |
 
@@ -390,3 +392,15 @@ Plan":
   in Context that only one task needs
 
 Quote the text and give the shorter form, or say to cut it.
+
+## 15. Plan Size
+
+Count `### Task N` headings only.
+
+- Eight or more tasks: Blocking. Split into separate plan
+  files of seven or fewer, ordered by dependency when the
+  work is sequential. Phases or groups within one document
+  are not a split.
+- Six or seven tasks: Advisory; recommend redesigning to
+  five or fewer unless a split would leave a plan too small
+  to stand alone.

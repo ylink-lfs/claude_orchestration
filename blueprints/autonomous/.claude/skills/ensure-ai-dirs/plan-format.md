@@ -123,6 +123,13 @@ checklist obscures status rather than revealing it.
 
 ### Tasks
 
+<!-- agent: Five tasks per plan is the target; eight or
+     more is not allowed — split into separate plan files
+     of seven or fewer, ordered by dependency when the work
+     is sequential. The gap between five and seven is
+     headroom for remedial tasks appended at completion.
+     Counts "### Task N" headings, not checkboxes. -->
+
 <!-- agent: A task's checkboxes are acceptance criteria —
      observable outcomes that let anyone verify the task is
      done — not a procedure for doing it. If a checkbox says
@@ -326,14 +333,13 @@ it. In particular, leave out:
 - Update the header Status and step checkboxes as work
   progresses — stale plans mislead the next session into
   repeating or skipping work.
-- Plans are committed to git alongside the code they
-  describe — this ties decisions to the code that
-  implemented them, making future archaeology easier.
+- Plans are not committed — the plans directory is
+  gitignored, since AI-generated documentation stays out
+  of version control. Progress lives in the working-tree
+  checkboxes; where they disagree with the commits after a
+  crash, a rebase, or a move to another machine, the
+  commits win.
 - A plan never records the commit SHAs of its own tasks.
-  Each commit instead names its plan with a `Plan:`
-  trailer — the plan's filename without `.md` (e.g.
-  `Plan: YYYY-MM-DD-add-user-auth`). A commit's SHA is
-  unknown until the commit exists, so writing it back into
-  the plan forces an amend, and a later rebase or squash
-  silently orphans it; `git log --grep="Plan: "` is the
-  stable plan→commit lookup.
+  A commit's SHA is unknown until the commit exists, and a
+  later rebase or squash silently orphans one written into
+  the plan; `git log` is the record of what landed.

@@ -48,6 +48,7 @@ REQUIRED_CHECKLIST_SECTIONS = [
     "Format Compliance",
     "Separable Concerns",
     "Plan Noise",
+    "Plan Size",
 ]
 
 
@@ -204,25 +205,50 @@ def test_lead_instructions_review_before_user_presentation(lead_instructions):
     )
 
 
-def test_lead_instructions_commit_after_approval(lead_instructions):
-    """Plan commit must come after user approval, not before."""
+def test_lead_instructions_queue_after_approval(lead_instructions):
+    """Queue entry must come after user approval, not before."""
     text = lead_instructions
     present_match = re.search(
         r"(\d+)\.\s+\*\*Present the plan to the user", text
     )
-    commit_match = re.search(
-        r"(\d+)\.\s+\*\*Commit the plan", text
+    queue_match = re.search(
+        r"(\d+)\.\s+\*\*Add the plan to the queue", text
     )
-    assert present_match and commit_match, (
-        "CLAUDE.md must have both a 'Present' and 'Commit' step"
+    assert present_match and queue_match, (
+        "CLAUDE.md must have both a 'Present' and 'Add the plan to "
+        "the queue' step"
     )
     present_step = int(present_match.group(1))
-    commit_step = int(commit_match.group(1))
-    assert present_step < commit_step, (
+    queue_step = int(queue_match.group(1))
+    assert present_step < queue_step, (
         f"User presentation (step {present_step}) must come before "
-        f"plan commit (step {commit_step}) — plans are committed "
-        f"only after user approval"
+        f"queue entry (step {queue_step}) — a plan enters the queue "
+        f"only after the user approves it"
     )
+    assert "after user approval, the" in text.lower(), (
+        "The queue step must state that approval is the gate. Plan "
+        "files are not committed, so a commit cannot serve as the "
+        "marker that approval happened"
+    )
+    assert not re.search(r"\d+\.\s+\*\*Commit the plan", text), (
+        "CLAUDE.md must not commit plan files — the plans directory "
+        "is gitignored"
+    )
+
+
+def test_presentation_always_includes_override_list(lead_instructions):
+    """Every declined Blocking finding reaches the user, even when there are none."""
+    text = " ".join(lead_instructions.lower().split())
+    for phrase in (
+        "always present the override list",
+        "even when it is empty",
+        "a decline must quote the plan text that refutes the finding",
+    ):
+        assert phrase in text, (
+            f"CLAUDE.md must say {phrase!r} — declining a reviewer's "
+            f"blocking finding is the author judging its own plan, so the "
+            f"user sees every such call"
+        )
 
 
 def test_lead_instructions_user_changes_get_reviewed(lead_instructions):
