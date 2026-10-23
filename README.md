@@ -358,8 +358,8 @@ quota and nearly filled the 5-hour window. That gives:
 | 1% of weekly quota | ~$6.5 |
 | One 5-hour window | ~$85 (conservative; other sessions shared that window) |
 
-These figures apply to one account plan and the model prices
-above. Re-derive them if either changes.
+These figures apply to one account plan (Max 20x) and the
+model prices above. Re-derive them if either changes.
 
 **Plan-review** (Sonnet 5.5 `plan-reviewer`, Opus 5.5 lead;
 202 rounds across 16 review cycles):

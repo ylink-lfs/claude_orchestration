@@ -157,8 +157,10 @@ Before any full-scale run:
 5. Keep concurrency low enough that a 5-hour limit
    cannot abort calls that are already in flight.
 
-The calibration ties to one account plan and the current
-model prices. Re-derive it if either changes.
+The quota percentages are measured on the Max 20x plan;
+scale them for a different plan. The calibration ties to
+that plan and the current model prices. Re-derive it if
+either changes.
 
 ## References
 
