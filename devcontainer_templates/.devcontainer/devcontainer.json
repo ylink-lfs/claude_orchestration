@@ -1,19 +1,16 @@
 {
   "name": "${localWorkspaceFolderBasename} - Sandbox",
-  // Build, resource limits, env files and read-only host binds live in
-  // docker-compose.yml. docker-compose.audio.yml adds PulseAudio passthrough
-  // and works on Linux only — remove it on macOS and Windows.
-  "dockerComposeFile": [
-    "docker-compose.yml",
-    "docker-compose.audio.yml"
-  ],
-  "service": "sandbox",
-  // Keep the container running — on the Compose path the image's own
-  // command runs otherwise, and it exits immediately.
-  "overrideCommand": true,
+  "build": {
+    "dockerfile": "Dockerfile",
+    // Build-time only proxy settings
+    "args": {
+      "HTTP_PROXY": "http://host.docker.internal:10808",
+      "HTTPS_PROXY": "http://host.docker.internal:10808",
+      "NO_PROXY": "localhost,127.0.0.1"
+    }
+  },
   // Use features to enable language support (https://containers.dev/features):
   "features": {
-    "ghcr.io/devcontainers/features/rust:1": {},
     "ghcr.io/devcontainers/features/node:1": {
       "pnpmVersion": "latest"
     },
@@ -26,26 +23,96 @@
     }
   },
   "remoteUser": "vscode",
-  // Named volumes only — read-only binds belong in docker-compose.yml (see
-  // there). Compose prefixes every volume with the project name
-  // (<folder>_devcontainer_), so the folder name is not repeated here;
-  // ${devcontainerId} keeps checkouts with the same folder name apart.
-  // fish keeps its history in ~/.local/share/fish, hence that mount target.
-  "mounts": [
-    "source=claude-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
-    "source=shell-history-${devcontainerId},target=/home/vscode/.local/share/fish,type=volume",
-    "source=pnpm-store-${devcontainerId},target=/home/vscode/.local/share/pnpm/store,type=volume"
-  ],
-  "containerEnv": {
-    // uv's cache and the workspace .venv are on different filesystems, so
-    // hardlinking always fails — copy without warning on every sync.
-    "UV_LINK_MODE": "copy",
-    // Keeps Claude Code's global config (.claude.json) on the ~/.claude
-    // volume instead of in $HOME, so it survives a rebuild; post-start.sh
-    // fills it once. containerEnv, not remoteEnv: a `claude` in a
-    // `docker exec` shell must read the same file.
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  "customizations": {
+    "vscode": {
+      // Remote-scoped setting — applies only to the extension host running
+      // inside this container, never synced back to the host's VS Code.
+      // The host's proxy client listens on 127.0.0.1:10808, which is only
+      // valid on the host's own loopback; from inside the container that
+      // address means "this container", so extension downloads (e.g.
+      // codelldb) must go through host.docker.internal instead.
+      "settings": {
+        "http.proxy": "http://host.docker.internal:10808"
+      },
+      // The Claude Code extension is a workspace-kind extension — it must
+      // run inside the container (not just the host) to power IDE features
+      // like `@` file-mention autocomplete and clickable file:line links
+      // from the integrated terminal. Installing it only on the host leaves
+      // those features silently broken in the devcontainer.
+      "extensions": [
+        "anthropic.claude-code"
+      ]
+    }
   },
+  // Cross-platform init: runs on the HOST before the container starts.
+  // The extensionless "init-env" is resolved by the OS — Unix runs init-env
+  // directly (shebang), Windows appends .cmd via PATHEXT and runs init-env.cmd.
+  // Creates .devcontainer/.env.local (gitignored) with CLAUDE_AUTH=proxy if
+  // it doesn't exist yet. The file must exist before Docker reads it via
+  // --env-file in runArgs below.
+  "initializeCommand": [
+    ".devcontainer/init-env"
+  ],
+  "runArgs": [
+    "--env-file",
+    ".devcontainer/.env.local",
+    // Docker Desktop (Mac/Windows) provides host.docker.internal natively;
+    // native Linux Docker Engine doesn't unless told to via host-gateway.
+    // Needed so hook scripts can reach the host's notify server.
+    "--add-host=host.docker.internal:host-gateway",
+    // Joins the same user-defined network as the local middleware
+    // containers (composes in ~/composes, each attached to `dc-local`),
+    // so the devcontainer reaches them by service name (e.g. mysql_server,
+    // redis-server) instead of hopping through the Docker Desktop
+    // host-gateway, which the host's app config found unreliable.
+    // Create the network once with `docker network create dc-local`.
+    "--network=dc-local"
+  ],
+  "mounts": [
+    "source=claude-code-shellhistory-${devcontainerId},target=/home/vscode/.local/share/fish,type=volume",
+    "source=claude-code-config-${localWorkspaceFolderBasename},target=/home/vscode/.claude,type=volume",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/vscode/.claude-host,type=bind,readonly",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude.json,target=/home/vscode/.claude-host.json,type=bind,readonly",
+    // Read-write, live (not copied like the rest of ~/.claude): keeps the
+    // global instructions and skill set in sync with the host as you edit
+    // them, instead of freezing a stale copy at container creation.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude/CLAUDE.md,target=/home/vscode/.claude/CLAUDE.md,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.agents/skills,target=/home/vscode/.agents/skills,type=bind",
+    "source=pnpm-store-${devcontainerId},target=/home/vscode/.local/share/pnpm/store,type=volume",
+
+    // The global CLAUDE.md references this catalog directly by path
+    // (~/.claude/anti-patterns/00-index.md), and it's a real directory,
+    // not a symlink into ~/.agents like skills/ — needs its own mount.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude/anti-patterns,target=/home/vscode/.claude/anti-patterns,type=bind",
+
+    // Shares the host's entire GOPATH (module cache, installed binaries,
+    // build info) so `go mod download` and `go install` reuse whatever the
+    // host already has. Read-write: anything the container fetches or
+    // installs also becomes available to the host. Matches the default
+    // GOPATH layout the Go feature installs at /home/vscode/go.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/go,target=/home/vscode/go,type=bind,consistency=delegated",
+
+
+    // Read-only: gives the container visibility into the host's compose
+    // definitions (e.g. for referencing service configs) without letting
+    // it modify them.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/composes,target=/home/vscode/composes,type=bind,readonly",
+
+    // Live, read-only: settings.json's Notification/Stop hooks call
+    // ~/.claude/scripts/notify-http.sh, which relays to the host's notify
+    // server over host.docker.internal when DEVCONTAINER=true. Nested
+    // under the ~/.claude volume mount above, same as CLAUDE.md/anti-patterns.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude/scripts,target=/home/vscode/.claude/scripts,type=bind,readonly"
+  ],
+  // workspaceFolder is always /workspace, so notify-http.sh can't derive a
+  // distinguishing project name from CLAUDE_PROJECT_DIR alone — every
+  // devcontainer's notification would read "workspace". This gives the
+  // notify server the real project name to display instead.
+  "containerEnv": {
+    "CLAUDE_NOTIFY_PROJECT_NAME": "${localWorkspaceFolderBasename}-containerd",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "bash /workspace/.devcontainer/post-create.sh",
   "postStartCommand": "bash /workspace/.devcontainer/post-start.sh",
