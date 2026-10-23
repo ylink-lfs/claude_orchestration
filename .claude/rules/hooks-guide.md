@@ -29,13 +29,14 @@ context injection).
 
 ### SessionStart
 
-Fires when a session begins or resumes. Supports four
+Fires when a session begins or resumes. Supports five
 matchers:
 
 - `"startup"` — new session
 - `"resume"` — `--resume`, `--continue`, or `/resume`
 - `"clear"` — after `/clear`
 - `"compact"` — after auto or manual compaction
+- `"fork"` — when the session forks
 
 Content printed to stdout becomes context the agent sees
 immediately. Useful for injecting dynamic runtime state
@@ -59,8 +60,15 @@ immediately. Useful for injecting dynamic runtime state
 }
 ```
 
-Multiple matchers can be combined — use separate entries
-in the array for different matchers.
+Multiple matchers can be combined in one entry using
+alternation — `"startup|resume"` and `"startup, resume"`
+are both valid and equivalent. Use separate array entries
+only when the matchers need different commands. Content
+that must survive session transitions should match all
+five; an authorization or reminder matched on `"startup"`
+alone disappears at the first compaction, because
+compaction summarizes exactly the message stream the hook
+wrote into.
 
 ### PreToolUse
 
@@ -148,6 +156,21 @@ docs list the definition fields that apply — `tools`,
 `model`, and the body — and `hooks` is not among them.
 Test before relying on frontmatter hooks in team-based
 blueprints.
+
+Project-level `PreToolUse`, `PostToolUse` and `TeammateIdle`
+hooks fire for in-process teammates, and each payload
+carries the teammate's `agent_id` — the same value across
+events, so a hook can track one teammate. Verified by
+experiment, not documentation; re-check after Claude Code
+upgrades.
+
+### Referencing hook scripts
+
+Address a script as `"$CLAUDE_PROJECT_DIR"/.claude/hooks/x`.
+A hook runs in the calling agent's current directory, so a
+relative path breaks once the agent `cd`s into a project
+subdirectory, and an absolute path differs between host and
+devcontainer.
 
 ## Blueprint Design Implications
 
